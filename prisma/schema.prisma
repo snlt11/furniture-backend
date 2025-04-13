@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  posts    Post[]
+  products Product[]
+}
+
+model Order {
+  id         Int                @id @default(autoincrement())
+  userId     Int
+  code       String
+  totalPrice Decimal
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  User       User               @relation(fields: [userId], references: [id])
+  products   ProductsOnOrders[]
+}
+
+model Otp {
+  id            Int      @id @default(autoincrement())
+  phone         String   @unique
+  otp           String
+  rememberToken String
+  verifyToken   String?
+  count         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  error         Int      @default(0)
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String
+  content    String
+  body       String
+  image      String
+  authorId   Int
+  categoryId Int
+  typeId     Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  author     User      @relation(fields: [authorId], references: [id])
+  category   Category  @relation(fields: [categoryId], references: [id])
+  type       Type      @relation(fields: [typeId], references: [id])
+  tags       PostTag[]
+}
+
+model Product {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String
+  price       Decimal
+  discount    Decimal            @default(0)
+  rating      Int                @default(0)
+  inventory   Int                @default(0)
+  status      Status             @default(ACTIVE)
+  categoryId  Int
+  typeId      Int
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  category    Category           @relation(fields: [categoryId], references: [id])
+  type        Type               @relation(fields: [typeId], references: [id])
+  orders      ProductsOnOrders[]
+  images      Image[]
+  tags        ProductTag[]
+  users       User[]
+}
+
+model ProductsOnOrders {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Decimal
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model PostTag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+}
+
+model ProductTag {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Type {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  posts    Post[]
+  products Product[]
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  firstName       String?
+  lastName        String?
+  phone           String    @unique
+  password        String
+  email           String?   @unique
+  role            Role      @default(USER)
+  status          Status    @default(ACTIVE)
+  lastLogin       DateTime?
+  errorLoginCount Int       @default(0)
+  randToken       String
+  image           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  orders          Order[]
+  posts           Post[]
+  products        Product[]
+}
+
+model Image {
+  id        Int     @id @default(autoincrement())
+  path      String
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+  AUTHOR
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  FREEZE
+}
+
+model Setting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
