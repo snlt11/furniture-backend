@@ -65,6 +65,7 @@ export const register = [
           result = await updateOtp(existingOtp.id, {
             otp: hashOtp,
             rememberToken: randToken,
+            verifyToken: null,
             count: 1,
             error: 0,
           });
@@ -81,6 +82,7 @@ export const register = [
           result = await updateOtp(existingOtp.id, {
             otp: hashOtp,
             rememberToken: randToken,
+            verifyToken: null,
             count: existingOtp.count + 1,
           });
         }
