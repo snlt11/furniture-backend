@@ -6,3 +6,13 @@ export const checkUserExists = (user: any) => {
     throw error;
   }
 };
+
+export const isHasOtp = (otp: any) => {
+  if(!otp){
+    const error = new Error("OTP not found for this phone number");
+    
+    (error as any).status = 404;
+    (error as any).code = "OTP_NOT_FOUND";
+    throw error;
+  }
+}
