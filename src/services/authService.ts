@@ -11,6 +11,18 @@ export const getUserByPhone = async (phone: string) => {
   });
 };
 
+export const getAllUsersInfo = async () => {
+  return prisma.user.findMany();
+};
+
+export const getUserById = async (id: number) => {
+  return prisma.user.findUnique({
+    where: {
+      id: id,
+    },
+  });
+};
+
 export const createOtpCode = async (otpCode: any) => {
   const existing = await prisma.otp.findUnique({
     where: { phone: otpCode.phone },
@@ -60,6 +72,6 @@ export const createUser = async (userData: any) => {
 export const updateUser = async (id: number, userData: any) => {
   return prisma.user.update({
     where: { id },
-    data: userData
+    data: userData,
   });
 };

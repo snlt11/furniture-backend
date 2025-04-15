@@ -7,6 +7,7 @@ import {
   updateOtp,
   createUser,
   updateUser,
+  getUserById,
 } from "../services/authService";
 import jwt from "jsonwebtoken";
 import { checkUserExists, isHasOtp, errorMessage } from "../utils/auth";
@@ -374,3 +375,72 @@ export const login = [
     }
   },
 ];
+
+export const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      throw errorMessage("You are not authenticated", 401, "UNAUTHORIZED");
+    }
+
+    let decoded;
+    try {
+      const result = jwt.verify(
+        refreshToken,
+        process.env.REFRESH_TOKEN_SECRET!
+      ) as jwt.JwtPayload;
+
+      if (!result || typeof result === "string") {
+        throw errorMessage("Invalid token format", 401, "UNAUTHORIZED");
+      }
+
+      if (!result.sub || !result.phone || result.type !== "refresh") {
+        throw errorMessage("Invalid token payload", 401, "UNAUTHORIZED");
+      }
+
+      decoded = {
+        sub:
+          typeof result.sub === "string"
+            ? parseInt(result.sub, 10)
+            : result.sub,
+        phone: result.phone,
+      };
+    } catch (err) {
+      throw errorMessage("Invalid or expired token", 401, "UNAUTHORIZED");
+    }
+
+    const user = await getUserById(decoded.sub);
+    if (!user || user.phone !== decoded.phone) {
+      throw errorMessage("Invalid token", 401, "UNAUTHORIZED");
+    }
+
+    await updateUser(user.id, {
+      randToken: generateRememberToken(),
+    });
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? ("none" as const)
+          : ("strict" as const),
+      path: "/",
+    };
+
+    res
+      .clearCookie("accessToken", cookieOptions)
+      .clearCookie("refreshToken", cookieOptions)
+      .status(200)
+      .json({
+        success: true,
+        message: "Successfully logged out. See you soon.",
+      });
+  } catch (error) {
+    next(error);
+  }
+};
