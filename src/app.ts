@@ -13,11 +13,36 @@ import { auth } from "./middleware/auth";
 
 export const app = express();
 
+const whitelist = process.env.ALLOWED_ORIGINS?.split(",") || [
+  "http://localhost:3000",
+];
+
+const corsOptions = {
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (whitelist.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
 app
   .use(morgan("dev"))
   .use(express.urlencoded({ extended: true }))
   .use(express.json())
   .use(cookieParser())
+  .use(cors(corsOptions))
   .use(helmet())
   .use(compression())
   .use(limiter);
