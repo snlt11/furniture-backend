@@ -16,3 +16,10 @@ export const isHasOtp = (otp: any) => {
     throw error;
   }
 }
+
+export function errorMessage(message: string, status: number, code: string): Error {
+  const error = new Error(message);
+  (error as any).status = status;
+  (error as any).code = code;
+  return error;
+}
