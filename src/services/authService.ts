@@ -60,8 +60,6 @@ export const createUser = async (userData: any) => {
 export const updateUser = async (id: number, userData: any) => {
   return prisma.user.update({
     where: { id },
-    data: {
-      randToken: userData.rememberToken,
-    }
+    data: userData
   });
 };

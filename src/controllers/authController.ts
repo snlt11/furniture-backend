@@ -71,7 +71,11 @@ export const register = [
           });
         } else {
           if (existingOtp.count >= 3) {
-            throw errorMessage("OTP is allowed to request 3 times per day",405,"OVER_LIMIT");
+            throw errorMessage(
+              "OTP is allowed to request 3 times per day",
+              405,
+              "OVER_LIMIT"
+            );
           }
 
           result = await updateOtp(existingOtp.id, {
@@ -272,10 +276,101 @@ export const confirmPassword = [
   },
 ];
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  res.status(200).json({ message: "login" });
-};
+export const login = [
+  body("phone")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 5, max: 12 })
+    .withMessage("Invalid phone number"),
+  body("password")
+    .trim()
+    .notEmpty()
+    .isLength({ min: 8 })
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]/)
+    .withMessage(
+      "Password must be at least 8 characters with letters and numbers"
+    ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const errors = validationResult(req).array({ onlyFirstError: true });
+      if (errors.length > 0) {
+        throw errorMessage(errors[0].msg, 422, "INVALID_INPUT");
+      }
+
+      let { phone, password } = req.body;
+      phone = phone.startsWith("09") ? phone.slice(2) : phone;
+
+      const user = await getUserByPhone(phone);
+      if (!user) throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+      if (user.status === "FREEZE")
+        throw errorMessage("User is freeze", 403, "USER_FREEZE");
+
+      const isMatchPassword = await bcrypt.compare(password, user.password);
+      if (!isMatchPassword) {
+        const lastRequest = new Date(user.updatedAt).toLocaleDateString();
+        const isSameDate = lastRequest === new Date().toLocaleDateString();
+
+        if (!isSameDate) {
+          await updateUser(user.id, { errorLoginCount: 1 });
+        } else {
+          if (user.errorLoginCount >= 3) {
+            await updateUser(user.id, {
+              status: "FREEZE",
+              errorLoginCount: user.errorLoginCount + 1,
+            });
+            throw errorMessage("Too many failed attempts", 403, "OVER_LIMIT");
+          }
+          await updateUser(user.id, {
+            errorLoginCount: user.errorLoginCount + 1,
+          });
+        }
+        throw errorMessage("Invalid password", 401, "INVALID_PASSWORD");
+      }
+
+      const randToken = generateRememberToken();
+      await updateUser(user.id, {
+        randToken,
+        errorLoginCount: 0,
+      });
+
+      const tokenPayload = { sub: user.id, phone: user.phone };
+      const accessToken = jwt.sign(
+        { ...tokenPayload, type: "access" },
+        process.env.ACCESS_TOKEN_SECRET!,
+        { expiresIn: "15m" }
+      );
+      const refreshToken = jwt.sign(
+        { ...tokenPayload, type: "refresh" },
+        process.env.REFRESH_TOKEN_SECRET!,
+        { expiresIn: "7d" }
+      );
+
+      res
+        .cookie("accessToken", accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          path: "/",
+          maxAge: 15 * 60 * 1000, // 15 minutes
+        })
+        .cookie("refreshToken", refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        })
+        .status(200)
+        .json({
+          message: "Successfully logged in",
+          user: {
+            id: user.id,
+            phone: user.phone,
+          },
+        });
+    } catch (error) {
+      next(error);
+    }
+  },
+];
