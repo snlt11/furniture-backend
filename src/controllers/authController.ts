@@ -612,3 +612,81 @@ export const forgotPassword = [
     }
   },
 ];
+
+export const verifyOtpForgotPassword = [
+  body("phone")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 5, max: 12 })
+    .withMessage("Invalid phone number"),
+  body("otp")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("Invalid OTP"),
+  body("token").trim().notEmpty().escape().withMessage("Invalid token"),
+
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const errors = validationResult(req).array({ onlyFirstError: true });
+      if (errors.length > 0) {
+        throw errorMessage(errors[0].msg, 422, "INVALID_INPUT");
+      }
+
+      let { phone, otp, token } = req.body;
+      phone = phone.startsWith("09") ? phone.slice(2) : phone;
+
+      const user = await getUserByPhone(phone);
+      if (!user) {
+        throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+      }
+
+      const otpRow = await getOtpByPhone(phone);
+      if (!otpRow) {
+        throw errorMessage("Invalid OTP request", 400, "INVALID_REQUEST");
+      }
+
+      const lastOtpVerify = new Date(otpRow.updatedAt).toLocaleDateString();
+
+      const isSameDate = lastOtpVerify === new Date().toLocaleDateString();
+
+      if (isSameDate && otpRow.error >= 5) {
+        throw errorMessage("Too many failed attempts", 403, "OVER_LIMIT");
+      }
+
+      if (otpRow.rememberToken !== token) {
+        await updateOtp(otpRow.id, { error: 5 });
+        throw errorMessage("Invalid token", 400, "INVALID_TOKEN");
+      }
+
+      if (moment().diff(otpRow.updatedAt, "minutes") > 2) {
+        throw errorMessage("OTP has expired", 403, "OTP_EXPIRED");
+      }
+
+      const isMatchOtp = await bcrypt.compare(otp, otpRow.otp);
+      if (!isMatchOtp) {
+        await updateOtp(otpRow.id, {
+          error: !isSameDate ? 1 : otpRow.error + 1,
+        });
+        throw errorMessage("Invalid OTP", 401, "INVALID_OTP");
+      }
+
+      const verifyToken = generateRememberToken();
+      const result = await updateOtp(otpRow.id, {
+        verifyToken,
+        error: 0,
+        count: 1,
+      });
+
+      res.status(200).json({
+        message: "OTP is successfully verified to reset password",
+        phone: result.phone,
+        token: result.verifyToken,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+];
