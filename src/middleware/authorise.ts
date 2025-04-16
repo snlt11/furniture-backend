@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { getUserById } from "../services/authService";
+import { getUserById } from "../services/userService";
 import { errorMessage } from "../utils/auth";
 
 export const authorise = (allowRoles: boolean, ...roles: string[]) => {

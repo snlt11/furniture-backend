@@ -1,14 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { body, validationResult } from "express-validator";
-import {
-  getOtpByPhone,
-  createOtpCode,
-  getUserByPhone,
-  updateOtp,
-  createUser,
-  updateUser,
-  getUserById,
-} from "../services/authService";
+import { getUserByPhone, getUserById, createUser, updateUser } from "../services/userService";
+import { getOtpByPhone, createOtpCode, updateOtp } from "../services/otpService";
 import jwt from "jsonwebtoken";
 import { checkUserExists, isHasOtp, errorMessage } from "../utils/auth";
 import { generateOtp, generateRememberToken } from "../utils/generateCode";
@@ -40,7 +33,7 @@ export const register = [
       checkUserExists(user);
 
       const otp = generateOtp();
-      // console.log("Otp code is ", otp);
+      console.log("Otp code is ", otp);
       const randToken = generateRememberToken();
       const salt = await bcrypt.genSalt(10);
       const hashOtp = await bcrypt.hash(otp.toString(), salt);

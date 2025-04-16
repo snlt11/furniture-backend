@@ -9,8 +9,8 @@ import {
   forgotPassword,
   verifyOtpForgotPassword,
   resetPassword,
-} from "../../controllers/authController";
-import { auth } from "../../middleware/auth";
+} from "../../../controllers/authController";
+import { auth } from "../../../middleware/auth";
 
 const router = express.Router();
 

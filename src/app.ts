@@ -10,12 +10,7 @@ import languageMiddleware from "i18next-http-middleware";
 import path from "path";
 
 import { limiter } from "./middleware/rateLimiter";
-// import routes from
-import authRoutes from "./routes/v1/auth";
-import adminRoutes from "./routes/v1/admin/admin";
-import userRoutes from "./routes/v1/user/user";
-import { auth } from "./middleware/auth";
-import { authorise } from "./middleware/authorise";
+import RoutesV1 from "./routes/v1";
 
 export const app = express();
 
@@ -75,10 +70,7 @@ i18next
   });
 app.use(languageMiddleware.handle(i18next));
 
-// app.use(routes);
-app.use("/api/v1", authRoutes);
-app.use("/api/v1/admin", auth, authorise(true, "ADMIN"), adminRoutes);
-app.use("/api/v1/user", userRoutes);
+app.use("/api/v1", RoutesV1);
 
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   const status = error.status || 500;
