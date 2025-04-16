@@ -17,8 +17,13 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
         const decoded = jwt.verify(
           accessToken,
           process.env.ACCESS_TOKEN_SECRET!
-        ) as { id: number };
-        (req as any).userId = decoded.id;
+        ) as jwt.JwtPayload;
+        
+        if (!decoded.sub) {
+          throw errorMessage("Invalid token payload", 401, "UNAUTHORIZED");
+        }
+        
+        req.userId = typeof decoded.sub === 'string' ? parseInt(decoded.sub, 10) : decoded.sub;
         return next();
       } catch (error) {
         if (!(error instanceof jwt.TokenExpiredError)) {

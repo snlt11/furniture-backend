@@ -1,4 +1,5 @@
 {
     "welcome": "Welcome to the furniture shop!",
-    "wrong_password": "Wrong password. Please try again"
+    "wrong_password": "Wrong password. Please try again",
+    "language_changed": "Language changed successfully"
 }

@@ -7,7 +7,7 @@ export const changeLanguage = async (
 ) => {
   try {
     const lang = req.query.lng as string;
-    if (!["en", "mm"].includes(lang)) {
+    if (!["en", "mm", "zh"].includes(lang)) {
       throw new Error("Invalid language code");
     }
     res.cookie("i18next", lang, {
@@ -18,7 +18,7 @@ export const changeLanguage = async (
       path: "/",
     });
     res.json({
-      message: "Language changed successfully",
+      message: req.t("language_changed"),
       language: lang,
       data: req.t("welcome"),
     });

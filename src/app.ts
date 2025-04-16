@@ -15,6 +15,7 @@ import authRoutes from "./routes/v1/auth";
 import adminRoutes from "./routes/v1/admin/admin";
 import userRoutes from "./routes/v1/user/user";
 import { auth } from "./middleware/auth";
+import { authorise } from "./middleware/authorise";
 
 export const app = express();
 
@@ -68,14 +69,15 @@ i18next
       order: ["querystring", "cookie"],
       caches: ["cookie"],
     },
+
     fallbackLng: "en",
-    preload: ["en", "mm"],
+    preload: ["en", "mm", "zh"],
   });
 app.use(languageMiddleware.handle(i18next));
 
 // app.use(routes);
 app.use("/api/v1", authRoutes);
-app.use("/api/v1/admin", auth, adminRoutes);
+app.use("/api/v1/admin", auth, authorise(true, "ADMIN"), adminRoutes);
 app.use("/api/v1/user", userRoutes);
 
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
