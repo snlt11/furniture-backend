@@ -10,7 +10,7 @@ export const getAllUsers = async (
     res.json({
       success: true,
       message: "Users retrieved successfully",
-      userId: req.userId,
+      userId: req.user?.id, 
       data: users,
     });
   } catch (error) {

@@ -444,3 +444,95 @@ export const logout = async (
     next(error);
   }
 };
+
+export const changePassword = [
+  body("oldPassword")
+    .trim()
+    .notEmpty()
+    .withMessage("Old password is required")
+    .isLength({ min: 8 })
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]/)
+    .withMessage(
+      "Password must be at least 8 characters with letters and numbers"
+    ),
+
+  body("newPassword")
+    .trim()
+    .notEmpty()
+    .withMessage("New password is required")
+    .isLength({ min: 8 })
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]/)
+    .withMessage(
+      "Password must be at least 8 characters with letters and numbers"
+    )
+    .custom(
+      (value, { req }) =>
+        value !== req.body.oldPassword ||
+        Promise.reject("New password must be different from old password")
+    ),
+
+  body("confirmPassword")
+    .trim()
+    .notEmpty()
+    .withMessage("Confirm password is required")
+    .custom(
+      (value, { req }) =>
+        value === req.body.newPassword ||
+        Promise.reject("Passwords do not match")
+    ),
+
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const errors = validationResult(req).array({ onlyFirstError: true });
+      if (errors.length > 0) {
+        throw errorMessage(errors[0].msg, 422, "INVALID_INPUT");
+      }
+
+      const accessToken = req.cookies?.accessToken;
+      if (!accessToken) {
+        throw errorMessage("Please login to continue", 401, "UNAUTHORIZED");
+      }
+
+      const decoded = jwt.verify(
+        accessToken,
+        process.env.ACCESS_TOKEN_SECRET!
+      ) as jwt.JwtPayload;
+      if (!decoded?.sub || decoded.type !== "access") {
+        throw errorMessage("Invalid token", 401, "UNAUTHORIZED");
+      }
+
+      const { oldPassword, newPassword } = req.body;
+      const userId =
+        typeof decoded.sub === "string"
+          ? parseInt(decoded.sub, 10)
+          : decoded.sub;
+      const user = await getUserById(userId);
+
+      if (!user) {
+        throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+      }
+
+      const isMatchPassword = await bcrypt.compare(oldPassword, user.password);
+      if (!isMatchPassword) {
+        throw errorMessage(
+          "Wrong password. Please try again",
+          401,
+          "INVALID_PASSWORD"
+        );
+      }
+
+      const hashPassword = await bcrypt.hash(
+        newPassword,
+        await bcrypt.genSalt(10)
+      );
+      await updateUser(user.id, { password: hashPassword });
+
+      res.status(200).json({
+        success: true,
+        message: "Password successfully changed",
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+];

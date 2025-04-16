@@ -18,7 +18,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
           accessToken,
           process.env.ACCESS_TOKEN_SECRET!
         ) as { id: number };
-        req.userId = decoded.id;
+        (req as any).userId = decoded.id;
         return next();
       } catch (error) {
         if (!(error instanceof jwt.TokenExpiredError)) {
@@ -72,7 +72,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
 
-    req.userId = user.id;
+    (req as any).userId = user.id;
     next();
   } catch (error) {
     next(error);
