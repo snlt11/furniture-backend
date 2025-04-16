@@ -4,11 +4,16 @@ import compression from "compression";
 import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import i18next from "i18next";
+import Backend from "i18next-fs-backend";
+import languageMiddleware from "i18next-http-middleware";
+import path from "path";
 
 import { limiter } from "./middleware/rateLimiter";
 // import routes from
 import authRoutes from "./routes/v1/auth";
-import userRoutes from "./routes/v1/admin/user";
+import adminRoutes from "./routes/v1/admin/admin";
+import userRoutes from "./routes/v1/user/user";
 import { auth } from "./middleware/auth";
 
 export const app = express();
@@ -47,9 +52,31 @@ app
   .use(compression())
   .use(limiter);
 
+i18next
+  .use(Backend)
+  .use(languageMiddleware.LanguageDetector)
+  .init({
+    backend: {
+      loadPath: path.join(
+        process.cwd(),
+        "src/locales",
+        "{{lng}}",
+        "{{ns}}.json"
+      ),
+    },
+    detection: {
+      order: ["querystring", "cookie"],
+      caches: ["cookie"],
+    },
+    fallbackLng: "en",
+    preload: ["en", "mm"],
+  });
+app.use(languageMiddleware.handle(i18next));
+
 // app.use(routes);
 app.use("/api/v1", authRoutes);
-app.use("/api/v1/admin", auth, userRoutes);
+app.use("/api/v1/admin", auth, adminRoutes);
+app.use("/api/v1/user", userRoutes);
 
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   const status = error.status || 500;

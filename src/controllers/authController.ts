@@ -326,7 +326,7 @@ export const login = [
             errorLoginCount: user.errorLoginCount + 1,
           });
         }
-        throw errorMessage("Invalid password", 401, "INVALID_PASSWORD");
+        throw errorMessage(req.t("wrong_password"), 401, "INVALID_PASSWORD");
       }
 
       const randToken = generateRememberToken();
