@@ -536,3 +536,79 @@ export const changePassword = [
     }
   },
 ];
+
+export const forgotPassword = [
+  body("phone")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 5, max: 12 })
+    .withMessage("Invalid phone number"),
+
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const errors = validationResult(req).array({ onlyFirstError: true });
+      if (errors.length > 0) {
+        throw errorMessage(errors[0].msg, 422, "INVALID_INPUT");
+      }
+
+      let { phone } = req.body;
+      phone = phone.startsWith("09") ? phone.slice(2) : phone;
+
+      const user = await getUserByPhone(phone);
+      if (!user) {
+        throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+      }
+
+      const otp = generateOtp();
+
+      // console.log("Otp code => ", otp);
+
+      const randToken = generateRememberToken();
+      const salt = await bcrypt.genSalt(10);
+      const hashOtp = await bcrypt.hash(otp.toString(), salt);
+
+      const otpRow = await getOtpByPhone(phone);
+      if (!otpRow) {
+        throw errorMessage("Invalid request", 400, "INVALID_REQUEST");
+      }
+
+      const lastOtpRequest = new Date(otpRow.updatedAt).toLocaleDateString();
+      const isSameDate = lastOtpRequest === new Date().toLocaleDateString();
+
+      let result;
+      if (!isSameDate) {
+        result = await updateOtp(otpRow.id, {
+          otp: hashOtp,
+          rememberToken: randToken,
+          verifyToken: null,
+          count: 1,
+          error: 0,
+        });
+      } else {
+        if (otpRow.count >= 3) {
+          throw errorMessage(
+            "OTP is allowed to request 3 times per day",
+            405,
+            "OVER_LIMIT"
+          );
+        }
+
+        result = await updateOtp(otpRow.id, {
+          otp: hashOtp,
+          rememberToken: randToken,
+          verifyToken: null,
+          count: otpRow.count + 1,
+        });
+      }
+
+      res.status(200).json({
+        message: `We are sending OTP to 09${result.phone} to reset password`,
+        phone: result.phone,
+        token: result.rememberToken,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+];
