@@ -8,6 +8,7 @@ import {
   changePassword,
   forgotPassword,
   verifyOtpForgotPassword,
+  resetPassword,
 } from "../../controllers/authController";
 import { auth } from "../../middleware/auth";
 
@@ -20,6 +21,7 @@ router.post("/login", login);
 router.get("/logout", logout);
 router.post("/change-password", auth, changePassword);
 router.post("/forgot-password", auth, forgotPassword);
-router.post("/verify-otp-forgot-password", auth, verifyOtpForgotPassword)
+router.post("/verify-otp-forgot-password", auth, verifyOtpForgotPassword);
+router.post("/reset-password", auth, resetPassword);
 
 export default router;

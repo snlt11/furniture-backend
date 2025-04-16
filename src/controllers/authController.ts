@@ -562,7 +562,7 @@ export const forgotPassword = [
 
       const otp = generateOtp();
 
-      // console.log("Otp code => ", otp);
+      console.log("Otp code => ", otp);
 
       const randToken = generateRememberToken();
       const salt = await bcrypt.genSalt(10);
@@ -685,6 +685,107 @@ export const verifyOtpForgotPassword = [
         phone: result.phone,
         token: result.verifyToken,
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+];
+
+export const resetPassword = [
+  body("phone")
+    .trim()
+    .notEmpty()
+    .matches("^[0-9]+$")
+    .isLength({ min: 5, max: 12 })
+    .withMessage("Invalid phone number"),
+  body("password")
+    .trim()
+    .notEmpty()
+    .isLength({ min: 8 })
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]/)
+    .withMessage(
+      "Password must be at least 8 characters with letters and numbers"
+    ),
+  body("token").trim().notEmpty().escape().withMessage("Invalid token"),
+
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const errors = validationResult(req).array({ onlyFirstError: true });
+      if (errors.length > 0) {
+        throw errorMessage(errors[0].msg, 422, "INVALID_INPUT");
+      }
+
+      let { phone, password, token } = req.body;
+      phone = phone.startsWith("09") ? phone.slice(2) : phone;
+
+      const user = await getUserByPhone(phone);
+      if (!user) {
+        throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+      }
+
+      const otpRow = await getOtpByPhone(phone);
+      if (!otpRow) {
+        throw errorMessage("Invalid request", 400, "INVALID_REQUEST");
+      }
+
+      if (otpRow.error >= 5) {
+        throw errorMessage("Too many failed attempts", 403, "OVER_LIMIT");
+      }
+
+      if (otpRow.verifyToken !== token) {
+        await updateOtp(otpRow.id, { error: 5 });
+        throw errorMessage("Invalid token", 400, "INVALID_TOKEN");
+      }
+
+      if (moment().diff(otpRow.updatedAt, "minutes") > 5) {
+        throw errorMessage("Request has expired", 403, "REQUEST_EXPIRED");
+      }
+
+      const hashPassword = await bcrypt.hash(
+        password,
+        await bcrypt.genSalt(10)
+      );
+
+      const tokenPayload = { sub: user.id, phone: user.phone };
+      const accessToken = jwt.sign(
+        { ...tokenPayload, type: "access" },
+        process.env.ACCESS_TOKEN_SECRET!,
+        { expiresIn: "15m" }
+      );
+      const refreshToken = jwt.sign(
+        { ...tokenPayload, type: "refresh" },
+        process.env.REFRESH_TOKEN_SECRET!,
+        { expiresIn: "30d" }
+      );
+
+      await updateUser(user.id, {
+        password: hashPassword,
+        randToken: refreshToken,
+      });
+
+      res
+        .cookie("accessToken", accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          path: "/",
+          maxAge: 15 * 60 * 1000,
+        })
+        .cookie("refreshToken", refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          path: "/",
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        })
+        .status(200)
+        .json({
+          message: "Password successfully reset",
+          user: {
+            id: user.id,
+            phone: user.phone,
+          },
+        });
     } catch (error) {
       next(error);
     }
