@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { getUserById, updateUser } from "../services/userService";
-import { checkUploadFile, checkUserIfNotExist } from "../utils/auth";
+import {
+  checkUploadFile,
+  checkUserIfNotExist,
+  errorMessage,
+} from "../utils/auth";
 import path from "path";
 import { unlink } from "fs/promises";
 
@@ -61,6 +65,30 @@ export const profileUpload = async (
     res.status(200).json({
       message: "Profile picture uploaded successfully",
       image: fileName,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const multipleFilesUpload = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    const user = await getUserById(req.userId!);
+
+    checkUserIfNotExist(user);
+    if (!files || files.length === 0)
+      throw errorMessage("No files uploaded", 400, "FILES_REQUIRED");
+
+    const fileNames = files.map((file) => file.filename);
+
+    res.status(200).json({
+      message: "Multiple files uploaded successfully",
+      images: fileNames,
     });
   } catch (error) {
     next(error);
