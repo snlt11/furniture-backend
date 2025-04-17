@@ -8,6 +8,7 @@ import i18next from "i18next";
 import Backend from "i18next-fs-backend";
 import languageMiddleware from "i18next-http-middleware";
 import path from "path";
+import cron from "node-cron";
 
 import { limiter } from "./middleware/rateLimiter";
 import RoutesV1 from "./routes/v1";
@@ -69,6 +70,7 @@ i18next
     preload: ["en", "mm", "zh"],
   });
 app.use(languageMiddleware.handle(i18next));
+app.use(express.static(path.join(process.cwd(), "uploads/profile/images")));
 
 app.use("/api/v1", RoutesV1);
 
@@ -78,3 +80,8 @@ app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   const errorCode = error.code || "Error_Code";
   res.status(status).json({ message, error: errorCode });
 });
+
+//Testing Cron Job
+// cron.schedule('* * * * *', () => {
+//   console.log('running a task every minute');
+// });

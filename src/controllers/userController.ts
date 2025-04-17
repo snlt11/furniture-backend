@@ -1,4 +1,8 @@
 import { Request, Response, NextFunction } from "express";
+import { getUserById, updateUser } from "../services/userService";
+import { checkUploadFile, checkUserIfNotExist } from "../utils/auth";
+import path from "path";
+import { unlink } from "fs/promises";
 
 export const changeLanguage = async (
   req: Request,
@@ -21,6 +25,42 @@ export const changeLanguage = async (
       message: req.t("language_changed"),
       language: lang,
       data: req.t("welcome"),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const profileUpload = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const image = req.file;
+    const user = await getUserById(req.userId!);
+    checkUserIfNotExist(user);
+    checkUploadFile(image);
+
+    const fileName = image!.filename;
+
+    if (user?.image) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "uploads/profile/images",
+          user.image
+        );
+        await unlink(filePath);
+      } catch (error) {
+        console.log("Error deleting old image:", error);
+      }
+    }
+    await updateUser(user!.id, { image: fileName });
+
+    res.status(200).json({
+      message: "Profile picture uploaded successfully",
+      image: fileName,
     });
   } catch (error) {
     next(error);

@@ -7,6 +7,14 @@ export const checkUserExists = (user: any) => {
   }
 };
 
+export const checkUploadFile = (file: Express.Multer.File | undefined) => {
+  if (!file) throw errorMessage("No file uploaded", 400, "FILE_REQUIRED");
+};
+
+export const checkUserIfNotExist = (user: any) => {
+  if (!user) throw errorMessage("User not found", 404, "USER_NOT_FOUND");
+};
+
 export const isHasOtp = (otp: any) => {
   if (!otp) {
     const error = new Error("OTP not found for this phone number");
