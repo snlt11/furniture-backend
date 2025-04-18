@@ -8,6 +8,7 @@ import {
 import path from "path";
 import { unlink } from "fs/promises";
 import multipleFileQueue from "../jobs/queues/multipleFileQueue";
+import fs from "fs/promises";
 
 export const changeLanguage = async (
   req: Request,
@@ -104,46 +105,62 @@ export const multipleFilesUploadWithQueue = async (
   try {
     const files = req.files as Express.Multer.File[];
     const user = await getUserById(req.userId!);
-
     checkUserIfNotExist(user);
-    if (!files || files.length === 0) {
+
+    if (!files?.length) {
       throw errorMessage("No files uploaded", 400, "FILES_REQUIRED");
     }
 
-    const jobs = await Promise.all(
-      files.map((file) => {
-        const splitFileName = file.filename.split(".")[0];
-        const newFileName = `${splitFileName}.webp`;
+    const baseDir = process.cwd();
+    const uploadDir = path.join(baseDir, "uploads/multiple");
+    const optimizeDir = path.join(uploadDir, "optimize");
 
-        return multipleFileQueue.add(
+    await fs.mkdir(optimizeDir, { recursive: true });
+
+    const processedFiles = files.map((file) => ({
+      originalPath: path.join(uploadDir, file.filename),
+      webpName: `${file.filename.split(".")[0]}.webp`,
+    }));
+
+    const jobs = await Promise.all(
+      processedFiles.map(({ originalPath, webpName }) =>
+        multipleFileQueue.add(
           "optimize-multiple-images",
           {
-            filePath: file.path,
-            fileName: newFileName,
+            filePath: originalPath,
+            fileName: webpName,
             width: 200,
             height: 200,
             quality: 50,
             destination: "uploads/multiple/optimize",
+            outputPath: webpName,
           },
           {
             attempts: 3,
-            backoff: {
-              type: "exponential",
-              delay: 1000,
-            },
+            backoff: { type: "exponential", delay: 1000 },
           }
-        );
-      })
+        )
+      )
     );
-
-    const fileNames = files.map((file) => file.filename);
 
     res.status(200).json({
       message: "Multiple files uploaded and queued for optimization",
-      images: fileNames,
-      jobIds: jobs.map((job: any) => job.id),
+      images: processedFiles.map((f) => f.webpName),
+      jobIds: jobs.map((job) => job.id),
     });
   } catch (error) {
+    if (req.files?.length) {
+      const uploadDir = path.join(process.cwd(), "uploads/multiple");
+      await Promise.all(
+        (req.files as Express.Multer.File[]).map((file) =>
+          unlink(path.join(uploadDir, file.filename)).catch((err) =>
+            console.error("Error deleting file:", err)
+          )
+        )
+      );
+    }
     next(error);
   }
 };
+
+

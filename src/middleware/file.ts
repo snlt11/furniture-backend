@@ -1,16 +1,62 @@
 import { Request, Response, NextFunction } from "express";
 import multer, { FileFilterCallback } from "multer";
 import path from "path";
+import fs from "fs/promises";
 
-const fileStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/profile/images");
+const UPLOAD_PATHS = {
+  PROFILE: "uploads/profile",
+  MULTIPLE: "uploads/multiple",
+  MULTIPLE_OPTIMIZE: "uploads/multiple/optimize",
+  POSTS: "uploads/posts",
+  POSTS_OPTIMIZE: "uploads/posts/optimize",
+} as const;
+
+const ALLOWED_MIMETYPES = {
+  IMAGES: ["image/png", "image/jpg", "image/jpeg", "image/webp"] as const,
+  DOCUMENTS: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ] as const,
+} as const;
+
+const FILE_SIZE_LIMIT = 2 * 1024 * 1024; // 2MB
+
+const ensureDirectoryExists = async (directory: string) => {
+  try {
+    await fs.access(directory);
+  } catch {
+    await fs.mkdir(directory, { recursive: true });
+  }
+};
+
+const initializeUploadDirectories = async () => {
+  await Promise.all(
+    Object.values(UPLOAD_PATHS).map((dir) =>
+      ensureDirectoryExists(path.join(process.cwd(), dir))
+    )
+  );
+};
+
+initializeUploadDirectories();
+
+const getUploadPath = (reqPath: string): string => {
+  if (reqPath.includes("profile")) return UPLOAD_PATHS.PROFILE;
+  if (reqPath.includes("multiple-files")) return UPLOAD_PATHS.MULTIPLE;
+  return UPLOAD_PATHS.POSTS;
+};
+
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = getUploadPath(req.path);
+    const fullPath = path.join(process.cwd(), uploadPath);
+    await ensureDirectoryExists(fullPath);
+    cb(null, fullPath);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     const ext = path.extname(file.originalname);
-    const uniqueSuffix =
-      Date.now() + "-" + Math.round(Math.random() * 1e9) + ext;
-    cb(null, uniqueSuffix);
+    cb(null, `${uniqueSuffix}${ext}`);
   },
 });
 
@@ -19,34 +65,28 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback
 ) => {
-  const allowedImageTypes = [
-    "image/png",
-    "image/jpg",
-    "image/jpeg",
-    "image/webp",
-  ];
-  const allowedFileTypes = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ];
+  type AllowedMimeType =
+    | (typeof ALLOWED_MIMETYPES.IMAGES)[number]
+    | (typeof ALLOWED_MIMETYPES.DOCUMENTS)[number];
 
-  allowedImageTypes.includes(file.mimetype) ||
-  allowedFileTypes.includes(file.mimetype)
-    ? cb(null, true)
-    : cb(null, false);
+  const isAllowedType = [
+    ...ALLOWED_MIMETYPES.IMAGES,
+    ...ALLOWED_MIMETYPES.DOCUMENTS,
+  ].includes(file.mimetype as AllowedMimeType);
+
+  cb(null, isAllowedType);
 };
 
 const file = multer({
-  storage: fileStorage,
+  storage,
   fileFilter,
-  limits: { fileSize: 1024 * 1024 * 2 }, // 2MB limit
+  limits: { fileSize: FILE_SIZE_LIMIT },
 });
 
 export const uploadMemory = multer({
   storage: multer.memoryStorage(),
   fileFilter,
-  limits: { fileSize: 1024 * 1024 * 2 }, // 2MB limit
+  limits: { fileSize: FILE_SIZE_LIMIT },
 });
 
 export default file;
