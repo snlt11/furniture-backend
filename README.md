@@ -106,6 +106,23 @@ This maps Redis inside the container (port 6379) to your host's port 6380.
    ```bash
    npm run queue:work:multiple-file
    ```
+## Project Structure
+
+```
+src/
+├── controllers/     # Request handlers
+├── middleware/      # Express middleware
+├── routes/          # Route definitions
+├── services/        # Business logic
+├── utils/           # Utility functions
+├── locales/         # i18n translations
+├── jobs/
+│   ├── queues/      # BullMQ queue definitions
+│   └── workers/     # BullMQ worker scripts
+├── config/          # Configuration files (e.g., redis.ts)
+├── app.ts           # Express app setup
+└── index.ts         # Entry point
+```
 
 ## API Endpoints
 
@@ -128,7 +145,22 @@ This maps Redis inside the container (port 6379) to your host's port 6380.
 - `PATCH /api/v1/user/profile/upload` - Upload profile image
 - `PATCH /api/v1/user/profile/upload-multiple` - Upload multiple images (with queue/optimization)
 
-## Security Features
+### Posts
+- `POST /api/v1/posts` - Create a new post (Auth required)
+- `GET /api/v1/posts` - Get all posts
+- `GET /api/v1/posts/:id` - Get post by ID
+- `PATCH /api/v1/posts/:id` - Update post (Auth required)
+- `DELETE /api/v1/posts/:id` - Delete post (Auth required)
+
+#### Post Features
+- Image upload and optimization
+- Category and type management
+- Tag support
+- Author verification
+- Automatic image cleanup
+- Queue-based image processing
+
+## Features
 
 - HTTP-only cookies
 - CORS protection
@@ -160,24 +192,6 @@ npm run build
 
 # Run in production mode
 npm start
-```
-
-## Project Structure
-
-```
-src/
-├── controllers/     # Request handlers
-├── middleware/      # Express middleware
-├── routes/          # Route definitions
-├── services/        # Business logic
-├── utils/           # Utility functions
-├── locales/         # i18n translations
-├── jobs/
-│   ├── queues/      # BullMQ queue definitions
-│   └── workers/     # BullMQ worker scripts
-├── config/          # Configuration files (e.g., redis.ts)
-├── app.ts           # Express app setup
-└── index.ts         # Entry point
 ```
 
 ## Contributing
